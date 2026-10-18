@@ -16,19 +16,28 @@ from piper import PiperVoice, SynthesisConfig
 
 VIDEO = "binomial_square.mp4"
 OUT = "binomial_square_narrated.mp4"
-DURATION = 30.0
+DURATION = 80.0
 
 # (start seconds, text)
 CUES = [
-    (0.3, "Why is a plus b, squared, equal to this?"),
-    (4.3, "A square with side a plus b has area a plus b, squared."),
-    (8.3, "Now, cut it into four pieces."),
-    (10.6, "The top left is a by a. That's a squared."),
-    (13.6, "The bottom right is b by b. That's b squared."),
-    (16.6, "And two rectangles, each a by b. That's a b, twice."),
-    (21.5, "Add up the pieces:"),
-    (23.3, "a squared, plus two a b, plus b squared!"),
-    (26.9, "Check: nine plus twelve plus four is twenty five!"),
+    (0.5, "Here's a famous identity: a plus b, squared, equals a squared, "
+          "plus two a b, plus b squared."),
+    (7.3, "But why is it true? Let's see it with a picture."),
+    (11.5, "Start with a square. Each side is made of two parts: "
+           "a length a, and a length b."),
+    (18.0, "So each side is a plus b, and the area of the whole square "
+           "is a plus b, squared."),
+    (24.0, "Now, let's cut the square along those marks, into four pieces."),
+    (30.5, "The top left piece is a by a. Its area is a squared."),
+    (38.5, "The bottom right piece is b by b. Its area is b squared."),
+    (46.5, "The top right piece is b wide and a tall, so its area is a times b."),
+    (52.5, "And the bottom left piece is also a by b. "
+           "So the a b rectangle appears twice."),
+    (59.0, "The four pieces fill the whole square. Adding them up: "
+           "a squared, plus a b, plus a b, plus b squared."),
+    (66.5, "The two a b's combine into two a b. And that's the identity!"),
+    (71.5, "Let's check: if a is three and b is two, five squared is twenty five."),
+    (76.0, "And nine plus six plus six plus four? Twenty five!"),
 ]
 
 
@@ -42,7 +51,7 @@ def synth(voice, text, path, length_scale):
 def main(model):
     voice = PiperVoice.load(model)
     tmp = Path(tempfile.mkdtemp())
-    clips = []
+    clips, too_long = [], False
     for i, (start, text) in enumerate(CUES):
         end = CUES[i + 1][0] if i + 1 < len(CUES) else DURATION
         window = end - start - 0.15
@@ -52,10 +61,12 @@ def main(model):
         while length > window and scale > 0.85:
             scale -= 0.05
             length = synth(voice, text, path, scale)
-        if length > window:
-            sys.exit(f"cue {i} is {length:.2f}s, window is {window:.2f}s: {text!r}")
-        print(f"{start:5.1f}s  {length:4.2f}s/{window:4.2f}s  x{scale:.2f}  {text}")
+        flag = "  <-- TOO LONG" if length > window else ""
+        too_long = too_long or bool(flag)
+        print(f"{start:5.1f}s  {length:4.2f}s/{window:4.2f}s  x{scale:.2f}  {text}{flag}")
         clips.append((start, path))
+    if too_long:
+        sys.exit("some cues overrun their window; shorten them or move cue times")
 
     inputs, filters = ["-i", VIDEO], []
     for n, (start, path) in enumerate(clips, start=1):
